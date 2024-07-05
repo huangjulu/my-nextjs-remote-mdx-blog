@@ -73,28 +73,37 @@ export async function getPostByName(fileName: string):Promise <BlogPost|undefine
 }
 
 export async function getPostMeta():Promise<Meta[] | undefined> {
-  const res = await fetch('https://api.github.com/repos/huangjulu/test-blogposts/git/trees/main?recursive=1',{
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-      'X-GitHub-Api-Version': '2022-11-28',
+  try{
+    const res = await fetch('https://api.github.com/repos/huangjulu/test-blogposts/git/trees/main?recursive=1',{
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      }
+    })  
+    
+    if(!res.ok) {
+      console.error(`GitHub API responded with status ${res.status}`)
+      console.error(await res.text())
+      return undefined
     }
-  })
-  if(!res.ok) return undefined
+    const repoFiletree: Filetree = await res.json()
+    const filesArray = repoFiletree.tree.map(obj => obj.path).filter(path => path.endsWith('.mdx'))
+    const posts: Meta[] = []
 
-  const repoFiletree: Filetree = await res.json()
-  const filesArray = repoFiletree.tree.map(obj => obj.path).filter(path => path.endsWith('.mdx'))
-
-  const posts: Meta[] = []
-
-  for(const file of filesArray) {
-    const post = await getPostByName(file)
-    if(post) {
-        const { meta } = post
-        posts.push(meta)
+    for(const file of filesArray) {
+      const post = await getPostByName(file)
+      if(post) {
+          const { meta } = post
+          posts.push(meta)
+      }
     }
+    return posts.sort((a, b) => a.date < b.date? 1 : -1)
   }
-  return posts.sort((a, b) => a.date < b.date? 1 : -1)
+  catch(err){
+    console.log('Error in getPostMeta:', err)
+    return undefined
+  }
 }
 
 // GitToken = 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
